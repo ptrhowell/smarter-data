@@ -379,7 +379,8 @@ with tab_live:
             p2_day_hint = p2_dow_mode.iloc[0] if not p2_dow_mode.empty else "mid-week"
             weekly_line = (
                 f"📅 This week's P1 ({cur_week['p1_type']}) was set on "
-                f"**{cur_week['p1_day']}** ({w_dir} week so far) — "
+                f"**{cur_week['p1_day']}** at **${cur_week['p1_price']:,.0f}** "
+                f"({w_dir} week so far) — "
                 f"weekly P2 most often lands on **{p2_day_hint}**."
             )
 
@@ -520,12 +521,10 @@ with tab_live:
                     annotation_font_color=GOLD,
                 )
 
-                # ── Pivot Zone lines ──
+                # ── Pivot Zone lines (daily only – weekly too far from intraday range) ──
                 _pz_cfg = [
-                    ("prev_d_p1", "D·P1", "dash", DIM),
-                    ("prev_d_p2", "D·P2", "dash", DIM),
-                    ("prev_w_p1", "W·P1", "dot",  CYAN),
-                    ("prev_w_p2", "W·P2", "dot",  CYAN),
+                    ("prev_d_p1", "Prev D·P1", "dash", DIM),
+                    ("prev_d_p2", "Prev D·P2", "dash", DIM),
                 ]
                 for key, label, dash, color in _pz_cfg:
                     pz = pivots.get(key)
