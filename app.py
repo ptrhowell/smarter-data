@@ -24,12 +24,14 @@ from data_fetcher import (
 from analysis_engine import (
     SESSIONS,
     identify_p1_p2,
+    identify_weekly_p1_p2,
     classify_volatility,
     build_macro_map,
     build_heatmap_matrix,
     get_summary_stats,
     analyze_today,
     build_session_breakdown,
+    get_pivot_zones,
 )
 
 # ═════════════════════════════════════════════════════════════
@@ -213,6 +215,12 @@ if not p1p2_fullday.empty:
 else:
     sess_brk = None
 
+# Weekly P1/P2
+weekly_p1p2 = identify_weekly_p1_p2(raw)
+
+# Pivot Zones  (previous day + previous week P1/P2 prices)
+pivots = get_pivot_zones(p1p2_fullday, weekly_p1p2)
+
 # Macro map  (pre-computed – used in Summary + Macro Map tab)
 macro = build_macro_map(p1p2, hour_bin, direction)
 
@@ -361,6 +369,20 @@ with tab_live:
             if avg_hours > 0 else ""
         )
 
+        # Weekly context
+        weekly_line = ""
+        if not weekly_p1p2.empty:
+            cur_week = weekly_p1p2.iloc[-1]
+            w_dir = "bullish" if cur_week["p1_type"] == "Low" else "bearish"
+            # Most common P2 day-of-week historically
+            p2_dow_mode = weekly_p1p2["p2_day"].mode()
+            p2_day_hint = p2_dow_mode.iloc[0] if not p2_dow_mode.empty else "mid-week"
+            weekly_line = (
+                f"📅 This week's P1 ({cur_week['p1_type']}) was set on "
+                f"**{cur_week['p1_day']}** ({w_dir} week so far) — "
+                f"weekly P2 most often lands on **{p2_day_hint}**."
+            )
+
         # Progress-based outlook
         if progress >= 100:
             outlook = (
@@ -396,6 +418,8 @@ with tab_live:
             summary_lines.append(p2_line)
         if duration_line:
             summary_lines.append(duration_line)
+        if weekly_line:
+            summary_lines.append(weekly_line)
         summary_lines.append(outlook)
 
         st.markdown("\n\n".join(summary_lines))
@@ -495,6 +519,28 @@ with tab_live:
                     annotation_text=f"Avg P2: ${tgt:,.0f}",
                     annotation_font_color=GOLD,
                 )
+
+                # ── Pivot Zone lines ──
+                _pz_cfg = [
+                    ("prev_d_p1", "D·P1", "dash", DIM),
+                    ("prev_d_p2", "D·P2", "dash", DIM),
+                    ("prev_w_p1", "W·P1", "dot",  CYAN),
+                    ("prev_w_p2", "W·P2", "dot",  CYAN),
+                ]
+                for key, label, dash, color in _pz_cfg:
+                    pz = pivots.get(key)
+                    if pz is not None:
+                        fig_c.add_hline(
+                            y=pz["price"],
+                            line_dash=dash,
+                            line_color=color,
+                            line_width=1,
+                            annotation_text=f"{label} ${pz['price']:,.0f}",
+                            annotation_font_color=color,
+                            annotation_font_size=9,
+                            annotation_position="top left" if "p1" in key else "bottom left",
+                        )
+
                 fig_c.update_layout(
                     **_PLOTLY,
                     height=340,
@@ -741,6 +787,70 @@ with tab_sess:
             yaxis=dict(title="P1 Session", autorange="reversed"),
         )
         st.plotly_chart(fig_cross, use_container_width=True)
+
+        # ── Weekly Sequence ──
+        if not weekly_p1p2.empty:
+            st.divider()
+            st.subheader("Weekly Sequence  –  Which Day Produces Weekly P1 & P2?")
+            st.caption(
+                "Same P1/P2 logic applied to the full trading week. "
+                "Shows which day of the week the weekly high/low typically forms."
+            )
+
+            wk1, wk2 = st.columns(2)
+
+            _DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+            with wk1:
+                p1_day_counts = (
+                    weekly_p1p2["p1_day"]
+                    .value_counts()
+                    .reindex(_DOW, fill_value=0)
+                )
+                fig_wp1 = go.Figure(go.Bar(
+                    x=_DOW,
+                    y=p1_day_counts.values,
+                    marker_color=BLUE,
+                    text=p1_day_counts.values,
+                    textposition="outside",
+                ))
+                fig_wp1.update_layout(
+                    **_PLOTLY, height=300,
+                    title=dict(text="Weekly P1 by Day", font=dict(size=13)),
+                    yaxis=dict(title="Count"),
+                )
+                st.plotly_chart(fig_wp1, use_container_width=True)
+
+            with wk2:
+                p2_day_counts = (
+                    weekly_p1p2["p2_day"]
+                    .value_counts()
+                    .reindex(_DOW, fill_value=0)
+                )
+                fig_wp2 = go.Figure(go.Bar(
+                    x=_DOW,
+                    y=p2_day_counts.values,
+                    marker_color=PURPLE,
+                    text=p2_day_counts.values,
+                    textposition="outside",
+                ))
+                fig_wp2.update_layout(
+                    **_PLOTLY, height=300,
+                    title=dict(text="Weekly P2 by Day", font=dict(size=13)),
+                    yaxis=dict(title="Count"),
+                )
+                st.plotly_chart(fig_wp2, use_container_width=True)
+
+            # Compact weekly stats row
+            n_weeks = len(weekly_p1p2)
+            w_bull = (weekly_p1p2["p1_type"] == "Low").sum()
+            w_avg = weekly_p1p2["expansion_pct"].mean()
+            w_med = weekly_p1p2["expansion_pct"].median()
+            wm1, wm2, wm3, wm4 = st.columns(4)
+            wm1.metric("Weeks Analysed", n_weeks)
+            wm2.metric("Bullish Weeks", f"{w_bull}/{n_weeks} ({w_bull/max(n_weeks,1)*100:.0f}%)")
+            wm3.metric("Avg Weekly Exp", f"{w_avg:.2f}%")
+            wm4.metric("Med Weekly Exp", f"{w_med:.2f}%")
 
 
 # ─────────────────────────────────────────────

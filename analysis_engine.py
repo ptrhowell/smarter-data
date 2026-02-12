@@ -388,6 +388,101 @@ def build_session_breakdown(p1p2_df: pd.DataFrame) -> dict:
 
 
 # ──────────────────────────────────────────────────────────────
+# Weekly P1 / P2  (same logic, grouped by ISO week)
+# ──────────────────────────────────────────────────────────────
+
+_DOW_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+def identify_weekly_p1_p2(intraday_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Walk through each ISO week and determine which extreme
+    (weekly High or Low) was printed first.
+
+    Returns one row per week with: week label, p1/p2 type,
+    day-of-week, price, expansion %, etc.
+    """
+    df = intraday_df.copy()
+    df["_iso_week"] = df.index.isocalendar().week.astype(int)
+    df["_iso_year"] = df.index.isocalendar().year.astype(int)
+    rows: list[dict] = []
+
+    for (yr, wk), wdata in df.groupby(["_iso_year", "_iso_week"]):
+        if len(wdata) < 2:
+            continue
+
+        high_idx = wdata["high"].idxmax()
+        low_idx  = wdata["low"].idxmin()
+        high_px  = wdata.loc[high_idx, "high"]
+        low_px   = wdata.loc[low_idx, "low"]
+
+        if high_idx == low_idx:
+            continue
+
+        if low_idx < high_idx:
+            p1_type, p2_type = "Low", "High"
+            p1_t, p2_t = low_idx, high_idx
+            p1_px, p2_px = low_px, high_px
+        else:
+            p1_type, p2_type = "High", "Low"
+            p1_t, p2_t = high_idx, low_idx
+            p1_px, p2_px = high_px, low_px
+
+        expansion = abs(p2_px - p1_px) / p1_px * 100
+        duration  = (p2_t - p1_t).total_seconds() / 60
+
+        rows.append({
+            "week":              f"{yr}-W{wk:02d}",
+            "week_start":        wdata.index[0].date(),
+            "p1_type":           p1_type,
+            "p1_day":            _DOW_NAMES[p1_t.dayofweek],
+            "p1_dow":            p1_t.dayofweek,
+            "p1_time":           p1_t,
+            "p1_price":          p1_px,
+            "p2_type":           p2_type,
+            "p2_day":            _DOW_NAMES[p2_t.dayofweek],
+            "p2_dow":            p2_t.dayofweek,
+            "p2_time":           p2_t,
+            "p2_price":          p2_px,
+            "expansion_pct":     expansion,
+            "p1_to_p2_minutes":  duration,
+            "weekly_range_pct":  (high_px - low_px) / low_px * 100,
+        })
+
+    return pd.DataFrame(rows)
+
+
+def get_pivot_zones(
+    daily_p1p2: pd.DataFrame,
+    weekly_p1p2: pd.DataFrame,
+) -> dict:
+    """
+    Extract previous-period P1/P2 prices for pivot zone lines.
+
+    Returns dict with keys:
+        prev_d_p1, prev_d_p2  – yesterday's P1 & P2 (price + type)
+        prev_w_p1, prev_w_p2  – last week's P1 & P2 (price + type)
+    Values are dicts {price, type} or None.
+    """
+    zones: dict = {
+        "prev_d_p1": None, "prev_d_p2": None,
+        "prev_w_p1": None, "prev_w_p2": None,
+    }
+
+    if not daily_p1p2.empty and len(daily_p1p2) >= 2:
+        prev = daily_p1p2.iloc[-2]
+        zones["prev_d_p1"] = {"price": prev["p1_price"], "type": prev["p1_type"]}
+        zones["prev_d_p2"] = {"price": prev["p2_price"], "type": prev["p2_type"]}
+
+    if not weekly_p1p2.empty and len(weekly_p1p2) >= 2:
+        prev = weekly_p1p2.iloc[-2]
+        zones["prev_w_p1"] = {"price": prev["p1_price"], "type": prev["p1_type"]}
+        zones["prev_w_p2"] = {"price": prev["p2_price"], "type": prev["p2_type"]}
+
+    return zones
+
+
+# ──────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────
 
