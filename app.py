@@ -1235,6 +1235,5 @@ st.divider()
 st.caption(
     f"Updated {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}  ·  "
     f"Source: {exchange_id.title()}  ·  "
-    f"{len(p1p2)} sessions analysed  ·  "
-    f"Inspired by [BrighterData](https://brighterdata.com)"
+    f"{len(p1p2)} sessions analysed"
 )
