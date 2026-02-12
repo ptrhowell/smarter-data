@@ -219,7 +219,7 @@ with st.sidebar:
         "Macro Map Hour Bins", options=[1, 2, 3, 4, 6], value=2
     )
 
-    if st.button("🔄  Refresh Data", width="stretch"):
+    if st.button("🔄  Refresh Data", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
@@ -561,7 +561,7 @@ with tab_live:
                 )
             )
             fig_g.update_layout(**_PLOTLY, height=340)
-            st.plotly_chart(fig_g, width="stretch")
+            st.plotly_chart(fig_g, use_container_width=True)
 
         with c_col:
             if not today_candles.empty:
@@ -628,7 +628,7 @@ with tab_live:
                     xaxis_rangeslider_visible=False,
                     showlegend=False,
                 )
-                st.plotly_chart(fig_c, width="stretch")
+                st.plotly_chart(fig_c, use_container_width=True)
 
 
 # ─────────────────────────────────────────────
@@ -681,7 +681,7 @@ with tab_macro:
             xaxis=dict(title="Expansion Threshold", side="top"),
             yaxis=dict(title="P1 Time Window (UTC)", autorange="reversed"),
         )
-        st.plotly_chart(fig_m, width="stretch")
+        st.plotly_chart(fig_m, use_container_width=True)
 
         # Summary table + bar chart
         st.divider()
@@ -690,7 +690,7 @@ with tab_macro:
             st.markdown("**Sample Count & Average Expansion**")
             st.dataframe(
                 macro[["Time Window", "N", "Avg %", "Med %"]],
-                width="stretch",
+                use_container_width=True,
                 hide_index=True,
             )
         with tr:
@@ -712,7 +712,7 @@ with tab_macro:
                 xaxis=dict(tickangle=-45),
                 yaxis=dict(title="Count"),
             )
-            st.plotly_chart(fig_n, width="stretch")
+            st.plotly_chart(fig_n, use_container_width=True)
 
         # Macro map as downloadable CSV
         csv_macro = macro.to_csv(index=False)
@@ -767,7 +767,7 @@ with tab_sess:
                 title=dict(text="Which Session Produces P1?", font=dict(size=14)),
                 showlegend=False,
             )
-            st.plotly_chart(fig_p1, width="stretch")
+            st.plotly_chart(fig_p1, use_container_width=True)
 
         with s2:
             labels_p2 = sess_brk["p2_pct"].index.tolist()
@@ -787,7 +787,7 @@ with tab_sess:
                 title=dict(text="Which Session Produces P2?", font=dict(size=14)),
                 showlegend=False,
             )
-            st.plotly_chart(fig_p2, width="stretch")
+            st.plotly_chart(fig_p2, use_container_width=True)
 
         # ── Expansion by P1 session ──
         st.divider()
@@ -802,7 +802,7 @@ with tab_sess:
         with ex1:
             exp_tbl = sess_brk["exp_by_p1"].reset_index()
             exp_tbl.columns = ["Session", "Days", "Avg Expansion %", "Median Expansion %"]
-            st.dataframe(exp_tbl, width="stretch", hide_index=True)
+            st.dataframe(exp_tbl, use_container_width=True, hide_index=True)
 
         with ex2:
             exp_data = sess_brk["exp_by_p1"].dropna()
@@ -829,7 +829,7 @@ with tab_sess:
                 yaxis=dict(title="Expansion %"),
                 legend=dict(x=0.7, y=0.95),
             )
-            st.plotly_chart(fig_ebar, width="stretch")
+            st.plotly_chart(fig_ebar, use_container_width=True)
 
         # ── Cross-tabulation heatmap ──
         st.divider()
@@ -865,7 +865,7 @@ with tab_sess:
             xaxis=dict(title="P2 Session", side="top"),
             yaxis=dict(title="P1 Session", autorange="reversed"),
         )
-        st.plotly_chart(fig_cross, width="stretch")
+        st.plotly_chart(fig_cross, use_container_width=True)
 
         # ── Weekly Sequence ──
         if not weekly_p1p2.empty:
@@ -898,7 +898,7 @@ with tab_sess:
                     title=dict(text="Weekly P1 by Day", font=dict(size=13)),
                     yaxis=dict(title="Count"),
                 )
-                st.plotly_chart(fig_wp1, width="stretch")
+                st.plotly_chart(fig_wp1, use_container_width=True)
 
             with wk2:
                 p2_day_counts = (
@@ -918,7 +918,7 @@ with tab_sess:
                     title=dict(text="Weekly P2 by Day", font=dict(size=13)),
                     yaxis=dict(title="Count"),
                 )
-                st.plotly_chart(fig_wp2, width="stretch")
+                st.plotly_chart(fig_wp2, use_container_width=True)
 
             # Compact weekly stats row
             n_weeks = len(weekly_p1p2)
@@ -961,7 +961,7 @@ with tab_time:
             xaxis=dict(title="Hour (UTC)"),
             yaxis=dict(title="Frequency"),
         )
-        st.plotly_chart(fig_h, width="stretch")
+        st.plotly_chart(fig_h, use_container_width=True)
 
     with cr:
         st.subheader("Day × Hour Heatmap")
@@ -987,7 +987,7 @@ with tab_time:
             xaxis=dict(title="Hour (UTC)"),
             yaxis=dict(autorange="reversed"),
         )
-        st.plotly_chart(fig_dh, width="stretch")
+        st.plotly_chart(fig_dh, use_container_width=True)
 
     # Duration analysis
     st.divider()
@@ -1016,7 +1016,7 @@ with tab_time:
             xaxis=dict(title="Hours"),
             yaxis=dict(title="Count"),
         )
-        st.plotly_chart(fig_dur, width="stretch")
+        st.plotly_chart(fig_dur, use_container_width=True)
 
     with d2:
         fig_sc = go.Figure(
@@ -1044,7 +1044,7 @@ with tab_time:
             xaxis=dict(title="P1 Hour (UTC)", dtick=2),
             yaxis=dict(title="P2 Hour (UTC)", dtick=2),
         )
-        st.plotly_chart(fig_sc, width="stretch")
+        st.plotly_chart(fig_sc, use_container_width=True)
 
 
 # ─────────────────────────────────────────────
@@ -1093,7 +1093,7 @@ with tab_exp:
             yaxis=dict(title="Count"),
             legend=dict(x=0.65, y=0.95),
         )
-        st.plotly_chart(fig_dist, width="stretch")
+        st.plotly_chart(fig_dist, use_container_width=True)
 
     with e2:
         st.subheader("Expansion Over Time")
@@ -1132,7 +1132,7 @@ with tab_exp:
             yaxis=dict(title="Expansion %"),
             showlegend=False,
         )
-        st.plotly_chart(fig_ts, width="stretch")
+        st.plotly_chart(fig_ts, use_container_width=True)
 
     # Breakdown cards
     st.divider()
@@ -1217,7 +1217,7 @@ with tab_data:
                 "Range %": "{:.2f}%",
             }
         ),
-        width="stretch",
+        use_container_width=True,
         height=520,
     )
 
