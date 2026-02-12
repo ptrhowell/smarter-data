@@ -55,6 +55,20 @@ CYAN   = "#79dae8"
 PURPLE = "#bc8cff"
 DIM    = "#484f58"
 
+
+def _hour_to_session(h: int) -> str:
+    """Map hour (0-23) to broad session name."""
+    if 0 <= h < 8:
+        return "Asian (00-08)"
+    elif 8 <= h < 13:
+        return "London (08-13)"
+    elif 13 <= h < 17:
+        return "NY AM (13-17)"
+    elif 17 <= h < 22:
+        return "NY PM (17-22)"
+    return "Late (22-00)"
+
+
 _PLOTLY = dict(
     template="plotly_dark",
     paper_bgcolor="rgba(0,0,0,0)",
@@ -199,6 +213,9 @@ if not p1p2_fullday.empty:
 else:
     sess_brk = None
 
+# Macro map  (pre-computed – used in Summary + Macro Map tab)
+macro = build_macro_map(p1p2, hour_bin, direction)
+
 # Today
 today_candles = fetch_today_candles(active_exchange, symbol, timeframe)
 today = analyze_today(today_candles, stats, session_name)
@@ -284,6 +301,105 @@ with tab_live:
             f"{today['progress']:.0f}%",
             delta="of avg daily range",
         )
+
+        # ── Plain-English Summary ──
+        st.divider()
+        st.markdown("#### 📋 Today's Summary")
+
+        p1_h = today.get("p1_hour", 0)
+        p1_sess = _hour_to_session(p1_h)
+        p1_time_str = (
+            today["p1_time"].strftime("%H:%M UTC")
+            if hasattr(today["p1_time"], "strftime")
+            else f"{p1_h:02d}:00 UTC"
+        )
+        direction_word = "bullish" if today["p1_type"] == "Low" else "bearish"
+        progress = today["progress"]
+
+        # Macro map context for this P1 time window
+        macro_line = ""
+        if not macro.empty:
+            for _, mrow in macro.iterrows():
+                window = mrow["Time Window"]
+                try:
+                    start_h = int(window.split("-")[0].split(":")[0])
+                    end_h = int(window.split("-")[1].split(":")[0])
+                    if start_h <= p1_h < end_h:
+                        thresh_cols = [c for c in macro.columns if c.startswith(">")]
+                        probs = []
+                        for tc in thresh_cols[:4]:
+                            val = mrow[tc]
+                            if val > 0:
+                                probs.append(f"**{val:.0f}%** chance of {tc}")
+                        if probs:
+                            macro_line = (
+                                f"📊 Historical odds from the **{window}** window: "
+                                + ", ".join(probs[:3]) + "."
+                            )
+                        break
+                except Exception:
+                    pass
+
+        # P2 session prediction from cross-tab
+        p2_line = ""
+        if sess_brk is not None and "cross" in sess_brk:
+            cross_tbl = sess_brk["cross"]
+            if p1_sess in cross_tbl.index:
+                crow = cross_tbl.loc[p1_sess].drop("All", errors="ignore")
+                if not crow.empty and crow.sum() > 0:
+                    top_p2 = crow.idxmax()
+                    top_pct = crow.max() / crow.sum() * 100
+                    p2_line = (
+                        f"🎯 When P1 is set in **{p1_sess}**, P2 most often "
+                        f"forms during **{top_p2}** ({top_pct:.0f}% of the time)."
+                    )
+
+        # Average P1→P2 duration
+        avg_hours = stats.get("avg_p1p2_hours", 0)
+        duration_line = (
+            f"⏱️ P1→P2 typically takes **{avg_hours:.1f} hours** on average."
+            if avg_hours > 0 else ""
+        )
+
+        # Progress-based outlook
+        if progress >= 100:
+            outlook = (
+                "✅ Today's expansion **exceeds the historical average**. "
+                "The typical daily move may be complete."
+            )
+        elif progress >= 80:
+            outlook = "⏳ Most of the typical daily expansion appears **near completion**."
+        elif progress >= 50:
+            outlook = (
+                "⏳ The move is **underway** but history suggests "
+                "there may be more room to extend."
+            )
+        else:
+            outlook = "🔄 Based on history, there's likely **more expansion ahead**."
+
+        # Assemble & render
+        summary_lines = [
+            (
+                f"**P1 ({today['p1_type']})** was set at **{p1_time_str}** "
+                f"during **{p1_sess}** — {direction_word} day so far."
+            ),
+            (
+                f"Current expansion: **{today['expansion']:.2f}%** "
+                f"(avg: {stats.get('avg_expansion', 0):.2f}%, "
+                f"median: {stats.get('med_expansion', 0):.2f}%) "
+                f"— **{progress:.0f}%** of typical range."
+            ),
+        ]
+        if macro_line:
+            summary_lines.append(macro_line)
+        if p2_line:
+            summary_lines.append(p2_line)
+        if duration_line:
+            summary_lines.append(duration_line)
+        summary_lines.append(outlook)
+
+        st.markdown("\n\n".join(summary_lines))
+        st.divider()
 
         # Gauge ┃ Candlestick
         g_col, c_col = st.columns([1, 2])
@@ -394,8 +510,6 @@ with tab_live:
 # ─────────────────────────────────────────────
 
 with tab_macro:
-    macro = build_macro_map(p1p2, hour_bin, direction)
-
     if macro.empty:
         st.info("Not enough data to generate the Macro Map.")
     else:
