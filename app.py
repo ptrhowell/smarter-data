@@ -49,13 +49,13 @@ st.set_page_config(
 # Colour palette & Plotly defaults
 # ═════════════════════════════════════════════════════════════
 
-GREEN  = "#00d26a"
-RED    = "#ff4b4b"
-BLUE   = "#58a6ff"
-GOLD   = "#ffd700"
-CYAN   = "#79dae8"
-PURPLE = "#bc8cff"
-DIM    = "#484f58"
+GREEN  = "#34C759"
+RED    = "#FF6B6B"
+BLUE   = "#5AC8FA"
+GOLD   = "#FFD60A"
+CYAN   = "#64D2FF"
+PURPLE = "#BF5AF2"
+DIM    = "#636366"
 
 
 def _hour_to_session(h: int) -> str:
@@ -75,7 +75,12 @@ _PLOTLY = dict(
     template="plotly_dark",
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="SF Mono, Menlo, monospace", color="#c9d1d9", size=12),
+    font=dict(
+        family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', "
+               "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+        color="#F5F5F7",
+        size=12,
+    ),
     margin=dict(l=50, r=30, t=50, b=40),
 )
 
@@ -86,15 +91,93 @@ _PLOTLY = dict(
 st.markdown(
     """
     <style>
-    /* metric cards */
-    [data-testid="stMetricValue"]  { font-size: 1.45rem; font-weight: 700; }
-    [data-testid="stMetricDelta"]  { font-size: 0.82rem; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-    /* tighter page padding */
-    .block-container { padding-top: 1rem; padding-bottom: 0.5rem; }
+    /* Global font override */
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont,
+                     'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+    }
 
-    /* tab styling */
-    button[data-baseweb="tab"] { font-size: 0.9rem; }
+    /* Page spacing */
+    .block-container {
+        padding-top: 1.5rem;
+        padding-bottom: 1rem;
+        max-width: 1200px;
+    }
+
+    /* Metric cards */
+    [data-testid="stMetricValue"] {
+        font-size: 1.5rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+    }
+    [data-testid="stMetricDelta"] {
+        font-size: 0.78rem;
+        font-weight: 400;
+        opacity: 0.7;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 0.72rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        opacity: 0.55;
+    }
+
+    /* Tab bar */
+    button[data-baseweb="tab"] {
+        font-family: 'Inter', -apple-system, sans-serif;
+        font-size: 0.82rem;
+        font-weight: 500;
+        letter-spacing: 0.01em;
+        padding: 0.6rem 1rem;
+    }
+
+    /* Sidebar polish */
+    [data-testid="stSidebar"] {
+        background-color: #1C1C1E;
+    }
+    [data-testid="stSidebar"] .block-container {
+        padding-top: 2rem;
+    }
+
+    /* Divider softening */
+    hr {
+        border-color: rgba(255, 255, 255, 0.06) !important;
+        margin: 1.2rem 0 !important;
+    }
+
+    /* Subheaders */
+    h3 {
+        font-weight: 600 !important;
+        letter-spacing: -0.02em !important;
+    }
+    h4 {
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        letter-spacing: -0.01em !important;
+    }
+
+    /* Dataframe styling */
+    [data-testid="stDataFrame"] {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    /* Captions */
+    .stCaption {
+        font-size: 0.75rem !important;
+        opacity: 0.5;
+    }
+
+    /* Buttons */
+    .stDownloadButton button, .stButton button {
+        border-radius: 8px !important;
+        font-weight: 500 !important;
+        font-size: 0.82rem !important;
+        letter-spacing: 0.01em;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -441,33 +524,33 @@ with tab_live:
                         bar=dict(
                             color=GREEN if today["p1_type"] == "Low" else RED
                         ),
-                        bgcolor="#161b22",
+                        bgcolor="#1C1C1E",
                         borderwidth=0,
                         steps=[
                             dict(
                                 range=[0, stats.get("p25_expansion", 1)],
-                                color="#0d1117",
+                                color="#111113",
                             ),
                             dict(
                                 range=[
                                     stats.get("p25_expansion", 1),
                                     stats.get("med_expansion", 2),
                                 ],
-                                color="#161b22",
+                                color="#1C1C1E",
                             ),
                             dict(
                                 range=[
                                     stats.get("med_expansion", 2),
                                     stats.get("p75_expansion", 3),
                                 ],
-                                color="#1c2333",
+                                color="#2C2C2E",
                             ),
                             dict(
                                 range=[
                                     stats.get("p75_expansion", 3),
                                     ceil,
                                 ],
-                                color="#21262d",
+                                color="#3A3A3C",
                             ),
                         ],
                         threshold=dict(
@@ -505,7 +588,7 @@ with tab_live:
                     arrowhead=2,
                     arrowcolor=GOLD,
                     font=dict(color=GOLD, size=11),
-                    bgcolor="#161b22",
+                    bgcolor="#1C1C1E",
                     bordercolor=GOLD,
                 )
                 # Avg-P2 target line
@@ -577,12 +660,11 @@ with tab_macro:
                 texttemplate="%{text:.0f}",
                 textfont=dict(size=11),
                 colorscale=[
-                    [0.0,  "#0d1117"],
-                    [0.20, "#1a3a5c"],
-                    [0.40, "#1f6f8b"],
-                    [0.60, "#e2d810"],
-                    [0.80, "#ff9f1c"],
-                    [1.0,  "#00d26a"],
+                    [0.0,  "#1C1C1E"],
+                    [0.25, "#1A3A4A"],
+                    [0.50, "#2D6A7A"],
+                    [0.75, "#5AC8FA"],
+                    [1.0,  "#34C759"],
                 ],
                 colorbar=dict(title="Prob %", ticksuffix="%"),
                 hovertemplate=(
@@ -649,11 +731,11 @@ with tab_macro:
 # ─────────────────────────────────────────────
 
 SESSION_COLORS = {
-    "Asian (00-08)":  "#58a6ff",
-    "London (08-13)": "#bc8cff",
-    "NY AM (13-17)":  "#00d26a",
-    "NY PM (17-22)":  "#ff9f1c",
-    "Late (22-00)":   "#484f58",
+    "Asian (00-08)":  "#5AC8FA",
+    "London (08-13)": "#BF5AF2",
+    "NY AM (13-17)":  "#34C759",
+    "NY PM (17-22)":  "#FF9F0A",
+    "Late (22-00)":   "#636366",
 }
 
 with tab_sess:
@@ -771,11 +853,11 @@ with tab_sess:
             texttemplate="%{text}",
             textfont=dict(size=12),
             colorscale=[
-                [0.0,  "#0d1117"],
-                [0.25, "#1a3a5c"],
-                [0.50, "#1f6f8b"],
-                [0.75, "#e2d810"],
-                [1.0,  "#00d26a"],
+                [0.0,  "#1C1C1E"],
+                [0.25, "#1A3A4A"],
+                [0.50, "#2D6A7A"],
+                [0.75, "#5AC8FA"],
+                [1.0,  "#34C759"],
             ],
             hovertemplate="P1: %{y}<br>P2: %{x}<br>Count: %{z}<extra></extra>",
         ))
