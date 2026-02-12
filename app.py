@@ -91,12 +91,10 @@ _PLOTLY = dict(
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-    /* Global font override */
+    /* Global font override — system fonts only (no external fetch) */
     html, body, [class*="css"] {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont,
-                     'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+                     'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     }
 
     /* Page spacing */
