@@ -185,7 +185,7 @@ else:
 stats = get_summary_stats(p1p2)
 
 # Today
-today_candles = fetch_today_candles(exchange_id, symbol, timeframe)
+today_candles = fetch_today_candles(active_exchange, symbol, timeframe)
 today = analyze_today(today_candles, stats)
 
 
