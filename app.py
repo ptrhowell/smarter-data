@@ -29,6 +29,7 @@ from analysis_engine import (
     build_heatmap_matrix,
     get_summary_stats,
     analyze_today,
+    build_session_breakdown,
 )
 
 # ═════════════════════════════════════════════════════════════
@@ -184,6 +185,20 @@ else:
 
 stats = get_summary_stats(p1p2)
 
+# Session Breakdown  (always Full Day, independent of sidebar session)
+p1p2_fullday = identify_p1_p2(raw, "Full Day (00:00-23:59)")
+if not p1p2_fullday.empty:
+    p1p2_fullday = classify_volatility(p1p2_fullday, atr_period)
+    if vol_filter and vol_class != "All":
+        fd_filtered = p1p2_fullday[p1p2_fullday["volatility"] == vol_class].copy()
+        if fd_filtered.empty:
+            fd_filtered = p1p2_fullday.copy()
+    else:
+        fd_filtered = p1p2_fullday.copy()
+    sess_brk = build_session_breakdown(fd_filtered)
+else:
+    sess_brk = None
+
 # Today
 today_candles = fetch_today_candles(active_exchange, symbol, timeframe)
 today = analyze_today(today_candles, stats, session_name)
@@ -221,14 +236,16 @@ st.divider()
 (
     tab_live,
     tab_macro,
+    tab_sess,
     tab_time,
     tab_exp,
     tab_data,
 ) = st.tabs(
     [
-        "📡  Live Dashboard",
+        "📡  Live",
         "🗺️  Macro Map",
-        "🕐  Time Analysis",
+        "📊  Sessions",
+        "🕐  Time",
         "📈  Expansion",
         "📋  Data",
     ]
@@ -469,7 +486,151 @@ with tab_macro:
 
 
 # ─────────────────────────────────────────────
-# TAB 3 – Time Analysis
+# TAB 3 – Session Breakdown  (always Full Day)
+# ─────────────────────────────────────────────
+
+SESSION_COLORS = {
+    "Asian (00-08)":  "#58a6ff",
+    "London (08-13)": "#bc8cff",
+    "NY AM (13-17)":  "#00d26a",
+    "NY PM (17-22)":  "#ff9f1c",
+    "Late (22-00)":   "#484f58",
+}
+
+with tab_sess:
+    if sess_brk is None:
+        st.info("Session breakdown requires Full Day data.")
+    else:
+        st.subheader("Session Breakdown  –  Which Session Produces P1 & P2?")
+        st.caption(
+            "Based on **Full Day** analysis (independent of Session filter). "
+            "Shows which trading session the daily high/low extreme typically falls in."
+        )
+
+        # ── Donut charts: P1 session / P2 session ──
+        s1, s2 = st.columns(2)
+
+        with s1:
+            labels_p1 = sess_brk["p1_pct"].index.tolist()
+            vals_p1   = sess_brk["p1_pct"].values.tolist()
+            cols_p1   = [SESSION_COLORS.get(l, DIM) for l in labels_p1]
+            fig_p1 = go.Figure(go.Pie(
+                labels=labels_p1,
+                values=vals_p1,
+                hole=0.50,
+                marker=dict(colors=cols_p1),
+                textinfo="label+percent",
+                textfont=dict(size=12),
+                hovertemplate="%{label}: %{value:.1f}%<extra></extra>",
+            ))
+            fig_p1.update_layout(
+                **_PLOTLY, height=340,
+                title=dict(text="Which Session Produces P1?", font=dict(size=14)),
+                showlegend=False,
+            )
+            st.plotly_chart(fig_p1, use_container_width=True)
+
+        with s2:
+            labels_p2 = sess_brk["p2_pct"].index.tolist()
+            vals_p2   = sess_brk["p2_pct"].values.tolist()
+            cols_p2   = [SESSION_COLORS.get(l, DIM) for l in labels_p2]
+            fig_p2 = go.Figure(go.Pie(
+                labels=labels_p2,
+                values=vals_p2,
+                hole=0.50,
+                marker=dict(colors=cols_p2),
+                textinfo="label+percent",
+                textfont=dict(size=12),
+                hovertemplate="%{label}: %{value:.1f}%<extra></extra>",
+            ))
+            fig_p2.update_layout(
+                **_PLOTLY, height=340,
+                title=dict(text="Which Session Produces P2?", font=dict(size=14)),
+                showlegend=False,
+            )
+            st.plotly_chart(fig_p2, use_container_width=True)
+
+        # ── Expansion by P1 session ──
+        st.divider()
+        st.subheader("Expansion by P1 Session")
+        st.caption(
+            "When P1 is set during a given session, how much does the market "
+            "typically expand to P2?"
+        )
+
+        ex1, ex2 = st.columns([1, 1])
+
+        with ex1:
+            exp_tbl = sess_brk["exp_by_p1"].reset_index()
+            exp_tbl.columns = ["Session", "Days", "Avg Expansion %", "Median Expansion %"]
+            st.dataframe(exp_tbl, use_container_width=True, hide_index=True)
+
+        with ex2:
+            exp_data = sess_brk["exp_by_p1"].dropna()
+            fig_ebar = go.Figure()
+            fig_ebar.add_trace(go.Bar(
+                x=exp_data.index,
+                y=exp_data["Avg Exp %"],
+                name="Average",
+                marker_color=BLUE,
+                text=exp_data["Avg Exp %"].apply(lambda v: f"{v:.2f}%"),
+                textposition="outside",
+            ))
+            fig_ebar.add_trace(go.Bar(
+                x=exp_data.index,
+                y=exp_data["Med Exp %"],
+                name="Median",
+                marker_color=CYAN,
+                text=exp_data["Med Exp %"].apply(lambda v: f"{v:.2f}%"),
+                textposition="outside",
+            ))
+            fig_ebar.update_layout(
+                **_PLOTLY, height=340, barmode="group",
+                title=dict(text="Avg vs Median Expansion by P1 Session", font=dict(size=13)),
+                yaxis=dict(title="Expansion %"),
+                legend=dict(x=0.7, y=0.95),
+            )
+            st.plotly_chart(fig_ebar, use_container_width=True)
+
+        # ── Cross-tabulation heatmap ──
+        st.divider()
+        st.subheader("P1 Session → P2 Session Flow")
+        st.caption(
+            "If P1 is set in [row session], which session does P2 land in? "
+            "Read across a row to see the distribution."
+        )
+
+        cross = sess_brk["cross"]
+        # Remove the 'All' margins for the heatmap
+        cross_clean = cross.drop("All", axis=0, errors="ignore").drop("All", axis=1, errors="ignore")
+
+        fig_cross = go.Figure(go.Heatmap(
+            z=cross_clean.values,
+            x=cross_clean.columns.tolist(),
+            y=cross_clean.index.tolist(),
+            text=cross_clean.values,
+            texttemplate="%{text}",
+            textfont=dict(size=12),
+            colorscale=[
+                [0.0,  "#0d1117"],
+                [0.25, "#1a3a5c"],
+                [0.50, "#1f6f8b"],
+                [0.75, "#e2d810"],
+                [1.0,  "#00d26a"],
+            ],
+            hovertemplate="P1: %{y}<br>P2: %{x}<br>Count: %{z}<extra></extra>",
+        ))
+        fig_cross.update_layout(
+            **_PLOTLY, height=350,
+            title=dict(text="P1 Session × P2 Session (count)", font=dict(size=13)),
+            xaxis=dict(title="P2 Session", side="top"),
+            yaxis=dict(title="P1 Session", autorange="reversed"),
+        )
+        st.plotly_chart(fig_cross, use_container_width=True)
+
+
+# ─────────────────────────────────────────────
+# TAB 4 – Time Analysis
 # ─────────────────────────────────────────────
 
 with tab_time:

@@ -308,6 +308,86 @@ def analyze_today(
 
 
 # ──────────────────────────────────────────────────────────────
+# Session Breakdown  (BrighterData-style overlay)
+# ──────────────────────────────────────────────────────────────
+
+# Broad sessions used for classification (non-overlapping, cover 24h)
+_SESSION_BINS = [
+    ("Asian (00-08)",  0,  8),
+    ("London (08-13)", 8,  13),
+    ("NY AM (13-17)",  13, 17),
+    ("NY PM (17-22)",  17, 22),
+    ("Late (22-00)",   22, 24),
+]
+
+
+def _classify_hour(hour: int) -> str:
+    """Map an hour (0-23) to its session name."""
+    for name, lo, hi in _SESSION_BINS:
+        if lo <= hour < hi:
+            return name
+    return "Late (22-00)"
+
+
+def build_session_breakdown(p1p2_df: pd.DataFrame) -> dict:
+    """
+    Given **Full Day** P1/P2 data, classify each P1 and P2 by
+    the session in which it occurred.
+
+    Returns a dict with:
+        df              – copy with p1_session / p2_session columns
+        p1_counts       – value_counts of P1 sessions
+        p2_counts       – value_counts of P2 sessions
+        cross           – P1-session × P2-session cross-tab
+        exp_by_p1       – expansion stats grouped by P1 session
+        p1_pct          – % share of each session for P1
+        p2_pct          – % share of each session for P2
+    """
+    session_order = [s[0] for s in _SESSION_BINS]
+
+    df = p1p2_df.copy()
+    df["p1_session"] = df["p1_hour"].apply(_classify_hour)
+    df["p2_session"] = df["p2_hour"].apply(_classify_hour)
+
+    p1_counts = (
+        df["p1_session"]
+        .value_counts()
+        .reindex(session_order, fill_value=0)
+    )
+    p2_counts = (
+        df["p2_session"]
+        .value_counts()
+        .reindex(session_order, fill_value=0)
+    )
+
+    total = len(df) or 1
+    p1_pct = (p1_counts / total * 100).round(1)
+    p2_pct = (p2_counts / total * 100).round(1)
+
+    cross = pd.crosstab(
+        df["p1_session"], df["p2_session"], margins=True
+    )
+
+    exp_by_p1 = (
+        df.groupby("p1_session")["expansion_pct"]
+        .agg(["count", "mean", "median"])
+        .reindex(session_order)
+        .round(2)
+    )
+    exp_by_p1.columns = ["N", "Avg Exp %", "Med Exp %"]
+
+    return {
+        "df":         df,
+        "p1_counts":  p1_counts,
+        "p2_counts":  p2_counts,
+        "p1_pct":     p1_pct,
+        "p2_pct":     p2_pct,
+        "cross":      cross,
+        "exp_by_p1":  exp_by_p1,
+    }
+
+
+# ──────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────
 
