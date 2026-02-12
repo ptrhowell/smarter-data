@@ -253,16 +253,32 @@ def get_summary_stats(p1p2_df: pd.DataFrame) -> dict:
 # Live / today analysis
 # ──────────────────────────────────────────────────────────────
 
-def analyze_today(today_df: pd.DataFrame, stats: dict) -> dict:
+def analyze_today(
+    today_df: pd.DataFrame,
+    stats: dict,
+    session_name: str = "Full Day (00:00-23:59)",
+) -> dict:
     """Compare today's running P1/P2 against historical baselines."""
     if today_df.empty or not stats:
         return {}
 
-    high_idx = today_df["high"].idxmax()
-    low_idx  = today_df["low"].idxmin()
-    hi = today_df.loc[high_idx, "high"]
-    lo = today_df.loc[low_idx,  "low"]
-    last = today_df.iloc[-1]["close"]
+    # Filter to session window (same logic as identify_p1_p2)
+    if "Full Day" in session_name:
+        sdata = today_df
+    else:
+        session = SESSIONS.get(session_name, SESSIONS["Full Day (00:00-23:59)"])
+        sdata = today_df.between_time(
+            session["start"], session["end"], inclusive="left"
+        )
+
+    if len(sdata) < 2:
+        return {}
+
+    high_idx = sdata["high"].idxmax()
+    low_idx  = sdata["low"].idxmin()
+    hi = sdata.loc[high_idx, "high"]
+    lo = sdata.loc[low_idx,  "low"]
+    last = sdata.iloc[-1]["close"]
 
     if low_idx < high_idx:
         p1_type, p1_px, p1_t = "Low", lo, low_idx
