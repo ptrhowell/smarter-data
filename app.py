@@ -16,7 +16,11 @@ import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timezone
 
-from data_fetcher import fetch_historical_ohlcv, fetch_today_candles
+from data_fetcher import (
+    fetch_historical_ohlcv,
+    fetch_today_candles,
+    find_working_exchange,
+)
 from analysis_engine import (
     SESSIONS,
     identify_p1_p2,
@@ -89,7 +93,7 @@ with st.sidebar:
     st.divider()
 
     exchange_id = st.selectbox(
-        "Exchange", ["bybit", "okx", "binance", "coinbase"], index=0
+        "Exchange", ["auto", "okx", "kraken", "bybit", "coinbase", "binance"], index=0
     )
     if exchange_id == "binance":
         st.caption("⚠️ Binance may not work from cloud hosts")
@@ -126,14 +130,37 @@ with st.sidebar:
 # Data loading & analysis
 # ═════════════════════════════════════════════════════════════
 
-raw = fetch_historical_ohlcv(exchange_id, symbol, timeframe, days)
+# --- Step 1: Find a working exchange ---
+if exchange_id == "auto":
+    with st.status("Finding a reachable exchange...", expanded=True) as status:
+        st.write("Testing exchanges: okx → kraken → bybit → coinbase → binance")
+        active_exchange = find_working_exchange("okx", symbol)
+        if active_exchange:
+            status.update(label=f"Connected to {active_exchange.upper()}", state="complete")
+            st.write(f"✓ Using **{active_exchange}**")
+        else:
+            status.update(label="No exchange reachable", state="error")
+            st.error(
+                "Could not reach any exchange from this server. "
+                "All major crypto exchanges may be blocking this cloud IP. "
+                "Try running the app locally instead."
+            )
+            st.stop()
+else:
+    active_exchange = exchange_id
 
-if raw.empty:
-    st.error(
-        "No data returned from the exchange. "
-        "Check your symbol / exchange settings and internet connection."
-    )
-    st.stop()
+# --- Step 2: Fetch historical data ---
+with st.status(f"Downloading {days} days of {timeframe} candles from {active_exchange.upper()}...", expanded=True) as status:
+    st.write("This takes 1-3 min on the first run (cached for 1 hour after).")
+    raw = fetch_historical_ohlcv(active_exchange, symbol, timeframe, days)
+    if raw.empty:
+        status.update(label="No data received", state="error")
+        st.error(
+            f"No data returned from {active_exchange}. "
+            "Try a different exchange or check the symbol."
+        )
+        st.stop()
+    status.update(label=f"Loaded {len(raw):,} candles from {active_exchange.upper()}", state="complete")
 
 p1p2_all = identify_p1_p2(raw, session_name)
 
