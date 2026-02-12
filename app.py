@@ -297,7 +297,7 @@ with tab_live:
         m2.metric(
             "Current Expansion",
             f"{today['expansion']:.2f}%",
-            delta=f"Avg target: {today['avg_exp']:.2f}%",
+            delta=f"Day range: {today.get('max_expansion', today['expansion']):.2f}%",
         )
         m3.metric(
             "Remaining (est.)",

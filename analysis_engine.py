@@ -287,23 +287,33 @@ def analyze_today(
     else:
         p1_type, p1_px, p1_t = "Undetermined", lo, low_idx
 
-    expansion = (hi - lo) / lo * 100
+    max_expansion = (hi - lo) / lo * 100  # day's full range so far
+
+    # Live expansion: P1 to current price  (moves with price)
+    if p1_type == "Low":
+        live_expansion = max((last - p1_px) / p1_px * 100, 0)
+    elif p1_type == "High":
+        live_expansion = max((p1_px - last) / last * 100, 0)
+    else:
+        live_expansion = max_expansion
+
     avg_exp = stats.get("avg_expansion", 1)
     med_exp = stats.get("med_expansion", 1)
 
     return {
-        "price":       last,
-        "high":        hi,
-        "low":         lo,
-        "p1_type":     p1_type,
-        "p1_price":    p1_px,
-        "p1_time":     p1_t,
-        "p1_hour":     p1_t.hour,
-        "expansion":   expansion,
-        "avg_exp":     avg_exp,
-        "med_exp":     med_exp,
-        "progress":    min(expansion / avg_exp * 100, 200) if avg_exp else 0,
-        "remaining":   max(avg_exp - expansion, 0),
+        "price":          last,
+        "high":           hi,
+        "low":            lo,
+        "p1_type":        p1_type,
+        "p1_price":       p1_px,
+        "p1_time":        p1_t,
+        "p1_hour":        p1_t.hour,
+        "expansion":      live_expansion,       # P1 → current price
+        "max_expansion":  max_expansion,         # day's high-low range
+        "avg_exp":        avg_exp,
+        "med_exp":        med_exp,
+        "progress":       min(live_expansion / avg_exp * 100, 200) if avg_exp else 0,
+        "remaining":      max(avg_exp - live_expansion, 0),
     }
 
 
